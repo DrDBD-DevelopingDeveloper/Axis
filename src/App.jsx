@@ -93,6 +93,8 @@ export default function App() {
         <Timetable
           subjects={subjects}
           setSubjects={setSubjects}
+          doneMap={doneMap}
+          toggleDone={toggleDone}
         />
       )}
     </>
