@@ -1,29 +1,182 @@
-:root {
-  --bg: #ffffff;
-  --fg: #111111;
-  --card: #f2f2f2;
-}
-
-[data-theme="dark"] {
-  --bg: #121212;
-  --fg: #f5f5f5;
-  --card: #1e1e1e;
-}
-
-body {
-  margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-family: system-ui, sans-serif;
-}
-
-button {
-  margin: 4px;
-}
-
-.card {
-  background: var(--card);
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 8px;
-}
+/* =========================
+   THEME VARIABLES
+   ========================= */
+   :root {
+    --bg: #ffffff;
+    --fg: #0f172a;
+    --muted: #64748b;
+  
+    --card: #f8fafc;
+    --border: #e2e8f0;
+  
+    --accent: #2563eb;
+    --danger: #ef4444;
+  }
+  
+  [data-theme="dark"] {
+    --bg: #070b14;
+    --fg: #e5e7eb;
+    --muted: #9ca3af;
+  
+    --card: #0f1629;
+    --border: #1f2937;
+  
+    --accent: #3b82f6;
+    --danger: #ef4444;
+  }
+  
+  /* =========================
+     BASE
+     ========================= */
+  * {
+    box-sizing: border-box;
+  }
+  
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, sans-serif;
+  }
+  
+  /* Center content on desktop */
+  #root {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 16px 40px;
+  }
+  
+  /* =========================
+     HEADER / NAV
+     ========================= */
+  header {
+    display: flex;
+    gap: 8px;
+    padding: 12px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+  
+  /* =========================
+     TYPOGRAPHY
+     ========================= */
+  h2 {
+    margin: 0;
+    font-size: 1.4rem;
+  }
+  
+  h3 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-left: 3px solid var(--accent);
+    padding-left: 8px;
+  }
+  
+  .small {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  
+  /* =========================
+     LAYOUT UTILITIES
+     ========================= */
+  .section {
+    margin-bottom: 32px;
+  }
+  
+  /* Left-aligned rows (checkbox + text, etc.) */
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  /* Two-sided rows (text left, button right) */
+  .row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  
+  /* =========================
+     CARDS
+     ========================= */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 12px;
+  
+    /* depth */
+    box-shadow:
+      0 1px 0 rgba(255,255,255,0.04) inset,
+      0 10px 28px rgba(0,0,0,0.45);
+  }
+  
+  /* Hero / Today card */
+  .section:first-child .card {
+    background: linear-gradient(
+      135deg,
+      var(--card),
+      rgba(59,130,246,0.08)
+    );
+  }
+  
+  /* Exam emphasis */
+  .exam {
+    border-left: 4px solid var(--danger);
+  }
+  
+  /* =========================
+     BUTTONS
+     ========================= */
+  button {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.9rem;
+  }
+  
+  button.primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+  }
+  
+  button:hover {
+    filter: brightness(1.05);
+  }
+  
+  /* =========================
+     INPUTS
+     ========================= */
+  input[type="checkbox"] {
+    accent-color: var(--accent);
+  }
+  
+  /* =========================
+     RESPONSIVE
+     ========================= */
+  @media (max-width: 640px) {
+    #root {
+      padding: 0 12px 32px;
+    }
+  
+    header {
+      gap: 6px;
+    }
+  }
+  
