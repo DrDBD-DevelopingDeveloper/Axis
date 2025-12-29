@@ -18,8 +18,8 @@ function nowMinutes() {
 }
 function load(key, fallback) {
   try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : fallback;
+    const d = localStorage.getItem(key);
+    return d ? JSON.parse(d) : fallback;
   } catch {
     return fallback;
   }
@@ -29,7 +29,7 @@ function save(key, value) {
 }
 const ACADEMIC_DAY_END = timeToMinutes("18:00");
 
-/* ---------- CSV HELPERS ---------- */
+/* ================= CSV ================= */
 function parseCSV(text) {
   const lines = text.trim().split("\n");
   const headers = lines[0].split(",").map(h => h.trim());
@@ -44,13 +44,66 @@ function dayStringToIndex(d) {
   return { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 }[d];
 }
 
+/* ================= STATS ================= */
+function computeStats(doneMap) {
+  const today = new Date();
+  let cT=0,cD=0,gT=0,gD=0,eT=0,eD=0;
+
+  for (let i=0;i<7;i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const kDate = d.toISOString().slice(0,10);
+
+    Object.keys(doneMap).forEach(k => {
+      if (!k.startsWith(kDate)) return;
+      if (k.endsWith("|gym")) { gT++; if (doneMap[k]) gD++; }
+      else if (k.includes("|gym|")) { eT++; if (doneMap[k]) eD++; }
+      else { cT++; if (doneMap[k]) cD++; }
+    });
+  }
+
+  return {
+    classPct: cT ? Math.round(cD*100/cT) : 0,
+    gymPct: gT ? Math.round(gD*100/gT) : 0,
+    exercisePct: eT ? Math.round(eD*100/eT) : 0,
+  };
+}
+
+function CircularStat({ label, value, color }) {
+  const r = 45;
+  const c = 2 * Math.PI * r;
+  const o = c - (value / 100) * c;
+
+  return (
+    <div style={{ textAlign: "center", margin: 16 }}>
+      <svg width="120" height="120">
+        <circle cx="60" cy="60" r={r} stroke="#eee" strokeWidth="10" fill="none" />
+        <circle
+          cx="60" cy="60" r={r}
+          stroke={color}
+          strokeWidth="10"
+          fill="none"
+          strokeDasharray={c}
+          strokeDashoffset={o}
+          strokeLinecap="round"
+          transform="rotate(-90 60 60)"
+        />
+        <text x="60" y="65" textAnchor="middle" fontSize="18" fontWeight="bold">
+          {value}%
+        </text>
+      </svg>
+      <div>{label}</div>
+    </div>
+  );
+}
+
 /* ================= APP ================= */
 export default function App() {
   const today = todayISO();
   const dow = dayOfWeek();
   const now = nowMinutes();
 
-  const [view, setView] = useState("today"); // today | edit | stats
+  const [view, setView] = useState("home");
 
   const [classTemplates, setClassTemplates] = useState(() =>
     load("classTemplates", [])
@@ -71,322 +124,209 @@ export default function App() {
   useEffect(() => save("doneMap", doneMap), [doneMap]);
 
   function toggle(key) {
-    setDoneMap(prev => ({ ...prev, [key]: !prev[key] }));
+    setDoneMap(p => ({ ...p, [key]: !p[key] }));
   }
 
-  /* ================= CLASS TIMELINE ================= */
+  /* ---------- TIMELINE ---------- */
   const todaysClassesRaw = classTemplates
     .filter(c => c.day === dow && c.startTime)
-    .sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+    .sort((a,b)=>timeToMinutes(a.startTime)-timeToMinutes(b.startTime));
 
-  const todaysClasses = todaysClassesRaw.map((c, i) => {
+  const todaysClasses = todaysClassesRaw.map((c,i)=>{
     const start = timeToMinutes(c.startTime);
-    const next = todaysClassesRaw[i + 1];
+    const next = todaysClassesRaw[i+1];
     const end = next ? timeToMinutes(next.startTime) : ACADEMIC_DAY_END;
-    let status = "upcoming";
-    if (now >= start && now < end) status = "current";
-    if (now >= end) status = "past";
-    return { ...c, status };
+    let status="upcoming";
+    if (now>=start && now<end) status="current";
+    if (now>=end) status="past";
+    return {...c,status};
   });
 
   const grouped = {
-    current: todaysClasses.filter(c => c.status === "current"),
-    upcoming: todaysClasses.filter(c => c.status === "upcoming"),
-    past: todaysClasses.filter(c => c.status === "past"),
+    current: todaysClasses.filter(c=>c.status==="current"),
+    upcoming: todaysClasses.filter(c=>c.status==="upcoming"),
+    past: todaysClasses.filter(c=>c.status==="past"),
   };
 
-  /* ================= GYM TODAY ================= */
+  /* ---------- GYM TODAY ---------- */
   const cycleStart = new Date("2025-01-01");
-  const diffDays = Math.floor((new Date(today) - cycleStart) / 86400000);
-  const gymDayIndex = ((diffDays % 14) + 14) % 14;
+  const diffDays = Math.floor((new Date(today)-cycleStart)/86400000);
+  const gymDayIndex = ((diffDays%14)+14)%14;
 
-  const todaysGymIds = activeGymRegime[gymDayIndex] || [];
-  const todaysGyms = todaysGymIds.map(id => gymDayLibrary[id]).filter(Boolean);
+  const todaysGyms = (activeGymRegime[gymDayIndex]||[])
+    .map(id=>gymDayLibrary[id])
+    .filter(Boolean);
 
-  /* ================= UI ================= */
+  const stats = computeStats(doneMap);
+
   return (
-    <div style={{ padding: 24, fontFamily: "sans-serif", maxWidth: 800 }}>
-      <header>
-        <button onClick={() => setView("today")}>Today</button>{" "}
-        <button onClick={() => setView("edit")}>Edit</button>{" "}
-        <button onClick={() => setView("stats")}>Stats</button>
+    <div style={{padding:24,fontFamily:"sans-serif",maxWidth:900}}>
+      <header style={{marginBottom:16}}>
+        <button onClick={()=>setView("home")}>Home</button>{" "}
+        <button onClick={()=>setView("gym")}>Gym Regime</button>{" "}
+        <button onClick={()=>setView("timetable")}>Timetable</button>
       </header>
 
-      {/* ---------- TODAY ---------- */}
-      {view === "today" && (
+      {/* ================= HOME ================= */}
+      {view==="home" && (
         <>
           <h2>{today}</h2>
 
-          {["current","upcoming","past"].map(k => (
+          <div style={{display:"flex",justifyContent:"center"}}>
+            <CircularStat label="Classes" value={stats.classPct} color="#4caf50"/>
+            <CircularStat label="Gym" value={stats.gymPct} color="#2196f3"/>
+            <CircularStat label="Exercises" value={stats.exercisePct} color="#ff9800"/>
+          </div>
+
+          {["current","upcoming","past"].map(k=>(
             <section key={k}>
               <h3>{k.toUpperCase()}</h3>
-              {grouped[k].length === 0 && <p>None</p>}
-              {grouped[k].map(c => (
-                <ClassRow key={c.id} c={c} today={today} doneMap={doneMap} toggle={toggle} />
+              {grouped[k].map(c=>(
+                <div key={c.id}>
+                  <input
+                    type="checkbox"
+                    checked={!!doneMap[`${today}|${c.id}`]}
+                    onChange={()=>toggle(`${today}|${c.id}`)}
+                  />
+                  {" "}{c.title} — {c.startTime}
+                </div>
               ))}
             </section>
           ))}
 
-          <hr />
-          <h3>🏋️ Gym</h3>
-          {todaysGyms.length === 0 && <p>Rest day</p>}
+          <hr/>
 
-          {todaysGyms.map(gym => (
-            <div key={gym.title}>
-              <h4>{gym.title}</h4>
-              <ul>
-                {gym.warmup?.map(w => {
-                  const key = `${today}|gym|${gym.title}|warmup|${w.name}`;
-                  return (
-                    <li key={key}>
-                      <input type="checkbox" checked={!!doneMap[key]} onChange={() => toggle(key)} />
-                      {" "}{w.name}
-                    </li>
-                  );
-                })}
-                {gym.exercises.map(e => {
-                  const key = `${today}|gym|${gym.title}|${e.name}`;
-                  return (
-                    <li key={key}>
-                      <input type="checkbox" checked={!!doneMap[key]} onChange={() => toggle(key)} />
-                      {" "}{e.name}
-                    </li>
-                  );
-                })}
-              </ul>
+          <h3>🏋️ Gym</h3>
+          {todaysGyms.length===0 && <p>Rest day</p>}
+          {todaysGyms.map(g=>(
+            <div key={g.title}>
+              <h4>{g.title}</h4>
+              {[...(g.warmup||[]),...g.exercises].map(e=>{
+                const key=`${today}|gym|${g.title}|${e.name}`;
+                return(
+                  <div key={key}>
+                    <input
+                      type="checkbox"
+                      checked={!!doneMap[key]}
+                      onChange={()=>toggle(key)}
+                    />
+                    {" "}{e.name}
+                  </div>
+                );
+              })}
             </div>
           ))}
         </>
       )}
 
-      {/* ---------- EDIT ---------- */}
-      <hr />
+      {/* ================= GYM ================= */}
+      {view==="gym" && (
+        <>
+          <h2>Gym Regime</h2>
 
-<h3>Gym Day Library</h3>
-<button
-  onClick={() => {
-    const id = crypto.randomUUID();
-    setGymDayLibrary(prev => ({
-      ...prev,
-      [id]: { title: "Workout", warmup: [], exercises: [] },
-    }));
-  }}
->
-  + Create Gym Day
-</button>
+          <button onClick={()=>
+            setActiveGymRegime(Array.from({length:14},()=>[]))
+          }>
+            🔁 Gym Regime Change
+          </button>
 
-{Object.entries(gymDayLibrary).map(([id, g]) => (
-  <div key={id} style={{ border: "1px solid #ccc", padding: 8, margin: 8 }}>
-    <input
-      value={g.title}
-      onChange={e =>
-        setGymDayLibrary(prev => ({
-          ...prev,
-          [id]: { ...prev[id], title: e.target.value },
-        }))
-      }
-    />
+          <h3>Gym Day Library</h3>
+          <button onClick={()=>{
+            const id=crypto.randomUUID();
+            setGymDayLibrary(p=>({...p,[id]:{title:"Workout",warmup:[],exercises:[]}}));
+          }}>
+            + Create Gym Day
+          </button>
 
-    <button
-      onClick={() =>
-        setGymDayLibrary(prev => {
-          const copy = { ...prev };
-          delete copy[id];
-          return copy;
-        })
-      }
-    >
-      Delete Library Entry
-    </button>
-
-    <h4>Warmup</h4>
-    <button
-      onClick={() =>
-        setGymDayLibrary(prev => ({
-          ...prev,
-          [id]: {
-            ...prev[id],
-            warmup: [...prev[id].warmup, { name: "Warmup", reps: "10" }],
-          },
-        }))
-      }
-    >
-      + Warmup
-    </button>
-
-    {g.warmup.map((w, i) => (
-      <div key={i}>
-        <input
-          value={w.name}
-          onChange={e => {
-            const copy = { ...gymDayLibrary };
-            copy[id].warmup[i].name = e.target.value;
-            setGymDayLibrary(copy);
-          }}
-        />
-        <input
-          value={w.reps}
-          onChange={e => {
-            const copy = { ...gymDayLibrary };
-            copy[id].warmup[i].reps = e.target.value;
-            setGymDayLibrary(copy);
-          }}
-        />
-      </div>
-    ))}
-
-    <h4>Exercises</h4>
-    <button
-      onClick={() =>
-        setGymDayLibrary(prev => ({
-          ...prev,
-          [id]: {
-            ...prev[id],
-            exercises: [...prev[id].exercises, { name: "Exercise", sets: 3, reps: "10" }],
-          },
-        }))
-      }
-    >
-      + Exercise
-    </button>
-
-    {g.exercises.map((e, i) => (
-      <div key={i}>
-        <input
-          value={e.name}
-          onChange={ev => {
-            const copy = { ...gymDayLibrary };
-            copy[id].exercises[i].name = ev.target.value;
-            setGymDayLibrary(copy);
-          }}
-        />
-        <input
-          value={e.sets}
-          onChange={ev => {
-            const copy = { ...gymDayLibrary };
-            copy[id].exercises[i].sets = ev.target.value;
-            setGymDayLibrary(copy);
-          }}
-        />
-        <input
-          value={e.reps}
-          onChange={ev => {
-            const copy = { ...gymDayLibrary };
-            copy[id].exercises[i].reps = ev.target.value;
-            setGymDayLibrary(copy);
-          }}
-        />
-      </div>
-    ))}
-  </div>
-))}
-
-<hr />
-
-<h3>Active 14-Day Gym Regime</h3>
-<button
-  onClick={() =>
-    setActiveGymRegime(Array.from({ length: 14 }, () => []))
-  }
->
-  🔁 Gym Regime Change
-</button>
-
-{activeGymRegime.map((ids, dayIndex) => (
-  <div key={dayIndex} style={{ marginBottom: 12 }}>
-    <strong>Day {dayIndex + 1}</strong>
-
-    {Object.entries(gymDayLibrary).map(([id, gym]) => (
-      <label key={id} style={{ display: "block" }}>
-        <input
-          type="checkbox"
-          checked={ids.includes(id)}
-          onChange={() =>
-            setActiveGymRegime(prev => {
-              const copy = prev.map(arr => [...arr]);
-              if (copy[dayIndex].includes(id)) {
-                copy[dayIndex] = copy[dayIndex].filter(x => x !== id);
-              } else {
-                copy[dayIndex].push(id);
-              }
-              return copy;
-            })
-          }
-        />
-        {" "}{gym.title}
-      </label>
-    ))}
-  </div>
-))}
-
-          <h3>Classes</h3>
-          <button onClick={() =>
-            setClassTemplates(p => [...p, {
-              id: crypto.randomUUID(),
-              title: "New Class",
-              day: 1,
-              startTime: "09:00",
-              location: "Room"
-            }])
-          }>+ Add Class</button>
-
-          {classTemplates.map((c,i) => (
-            <div key={c.id}>
-              <input value={c.title} onChange={e => {
-                const cp=[...classTemplates]; cp[i].title=e.target.value; setClassTemplates(cp);
-              }} />
-              <input type="time" value={c.startTime} onChange={e => {
-                const cp=[...classTemplates]; cp[i].startTime=e.target.value; setClassTemplates(cp);
-              }} />
-              <button onClick={() =>
-                setClassTemplates(p => p.filter(x => x.id !== c.id))
-              }>Delete</button>
+          {Object.entries(gymDayLibrary).map(([id,g])=>(
+            <div key={id}>
+              <input
+                value={g.title}
+                onChange={e=>setGymDayLibrary(p=>({...p,[id]:{...p[id],title:e.target.value}}))}
+              />
             </div>
           ))}
 
-      {/* ---------- STATS ---------- */}
-      {view === "stats" && <StatsDashboard doneMap={doneMap} />}
+          <h3>Active 14-Day Regime</h3>
+          {activeGymRegime.map((ids,i)=>(
+            <div key={i}>
+              <strong>Day {i+1}</strong>
+              {Object.entries(gymDayLibrary).map(([id,g])=>(
+                <label key={id} style={{display:"block"}}>
+                  <input
+                    type="checkbox"
+                    checked={ids.includes(id)}
+                    onChange={()=>
+                      setActiveGymRegime(p=>{
+                        const c=p.map(a=>[...a]);
+                        c[i].includes(id)
+                          ? c[i]=c[i].filter(x=>x!==id)
+                          : c[i].push(id);
+                        return c;
+                      })
+                    }
+                  />
+                  {" "}{g.title}
+                </label>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* ================= TIMETABLE ================= */}
+      {view==="timetable" && (
+        <>
+          <h2>Timetable</h2>
+
+          <h3>Import CSV</h3>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={e=>{
+              const file=e.target.files[0];
+              if(!file) return;
+              const reader=new FileReader();
+              reader.onload=ev=>{
+                const rows=parseCSV(ev.target.result);
+                const imported=rows
+                  .map(r=>({
+                    id:crypto.randomUUID(),
+                    title:r.title,
+                    day:dayStringToIndex(r.day),
+                    startTime:r.startTime,
+                    location:r.location,
+                  }))
+                  .filter(c=>c.day!==undefined && c.startTime);
+                setClassTemplates(p=>[...p,...imported]);
+              };
+              reader.readAsText(file);
+            }}
+          />
+
+          <h3>Classes</h3>
+          <button onClick={()=>setClassTemplates(p=>[
+            ...p,
+            {id:crypto.randomUUID(),title:"New Class",day:1,startTime:"09:00",location:"Room"}
+          ])}>
+            + Add Class
+          </button>
+
+          {classTemplates.map((c,i)=>(
+            <div key={c.id}>
+              <input value={c.title} onChange={e=>{
+                const cp=[...classTemplates]; cp[i].title=e.target.value; setClassTemplates(cp);
+              }}/>
+              <input type="time" value={c.startTime} onChange={e=>{
+                const cp=[...classTemplates]; cp[i].startTime=e.target.value; setClassTemplates(cp);
+              }}/>
+              <button onClick={()=>setClassTemplates(p=>p.filter(x=>x.id!==c.id))}>
+                Delete
+              </button>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
-
-/* ================= COMPONENTS ================= */
-function ClassRow({ c, today, doneMap, toggle }) {
-  const key = `${today}|${c.id}`;
-  return (
-    <div>
-      <input type="checkbox" checked={!!doneMap[key]} onChange={() => toggle(key)} />
-      {" "}{c.title} — {c.startTime} ({c.location})
-    </div>
-  );
-}
-
-function StatsDashboard({ doneMap }) {
-  const today = new Date();
-  function day(n) {
-    const d = new Date(today);
-    d.setDate(d.getDate() - n);
-    return d.toISOString().slice(0, 10);
-  }
-
-  let cT=0,cD=0,gT=0,gD=0,eT=0,eD=0;
-
-  for (let i=0;i<7;i++) {
-    const d=day(i);
-    Object.keys(doneMap).forEach(k => {
-      if (!k.startsWith(d)) return;
-      if (k.endsWith("|gym")) { gT++; if (doneMap[k]) gD++; }
-      else if (k.includes("|gym|")) { eT++; if (doneMap[k]) eD++; }
-      else { cT++; if (doneMap[k]) cD++; }
-    });
-  }
-
-  return (
-    <ul>
-      <li>📘 Class attendance: {pct(cD,cT)}%</li>
-      <li>🏋️ Gym adherence: {pct(gD,gT)}%</li>
-      <li>💪 Exercise completion: {pct(eD,eT)}%</li>
-    </ul>
-  );
-}
-function pct(a,b){ return b?Math.round(a*100/b):0; }
