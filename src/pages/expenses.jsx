@@ -1,182 +1,195 @@
-import React, { useState, useMemo } from "react";
-import { useExpenses } from "../hooks/useExpenses";
-import { calculateTotal, groupByCategory, formatINR } from "../utils/finance";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Plus, Trash2, Edit3, TrendingUp, List, BarChart2 } from "lucide-react";
-
-// Modern Palette
-const COLORS = ["#5E6AD2", "#27C96E", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899"];
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthContext";
+import { supabase } from "../lib/supabase";
+import { Plus, Trash2, Wallet, TrendingUp, PieChart, Calendar } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 export default function Expenses() {
-  const { transactions, budgetLimit, setBudgetLimit, addTransaction, deleteTransaction } = useExpenses();
+  const { user } = useAuth();
+  const [expenses, setExpenses] = useState([]);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Food");
-  const [isEditing, setIsEditing] = useState(false);
-  const [viewMode, setViewMode] = useState("list"); // 'list' or 'trends'
+  const [monthlyLimit] = useState(5000); 
 
-  const total = calculateTotal(transactions, "EXPENSE");
-  const data = groupByCategory(transactions);
-  const percent = Math.min((total / budgetLimit) * 100, 100);
+  useEffect(() => {
+    if (user) {
+      const fetchExpenses = async () => {
+        const { data } = await supabase.from('expenses').select('*').eq('user_id', user.id).order('date', { ascending: false });
+        if (data) setExpenses(data);
+      };
+      fetchExpenses();
+    }
+  }, [user]);
 
-  // --- TREND DATA GENERATOR ---
-  const trendData = useMemo(() => {
-    // Group by Date (Last 30 entries or days)
-    const grouped = {};
-    transactions.forEach(t => {
-      const dateKey = new Date(t.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-      grouped[dateKey] = (grouped[dateKey] || 0) + t.amount;
-    });
-    
-    // Convert to Array and Sort
-    return Object.entries(grouped)
-      .map(([date, amount]) => ({ date, amount }))
-      .reverse(); // Show oldest to newest if your list is new-first
-  }, [transactions]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if(!amount) return;
-    addTransaction({ amount: parseFloat(amount), category, type: "EXPENSE" });
+  const addExpense = async () => {
+    if (!amount) return;
+    const newExpense = {
+      user_id: user.id,
+      amount: parseFloat(amount),
+      category,
+      date: new Date().toISOString()
+    };
+    setExpenses([newExpense, ...expenses]);
     setAmount("");
+    await supabase.from('expenses').insert([newExpense]);
   };
 
+  const deleteExpense = async (id, index) => {
+    const newExpenses = [...expenses];
+    newExpenses.splice(index, 1);
+    setExpenses(newExpenses);
+    if (id) await supabase.from('expenses').delete().eq('id', id);
+  };
+
+  const totalSpent = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const remaining = monthlyLimit - totalSpent;
+  const progress = Math.min((totalSpent / monthlyLimit) * 100, 100);
+
+  const categoryData = Object.entries(expenses.reduce((acc, curr) => {
+    acc[curr.category] = (acc[curr.category] || 0) + curr.amount;
+    return acc;
+  }, {})).map(([name, value]) => ({ name, value }));
+
+  const categories = ["Food", "Transport", "Entertainment", "Shopping", "Bills", "Other"];
+
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-12">
-      
-      {/* 1. HERO METRICS */}
+    <div className="max-w-7xl mx-auto space-y-8 p-8 text-text">
+      {/* Header Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="premium-card p-6 flex flex-col justify-between h-32 relative overflow-hidden">
-          <div className="absolute right-0 top-0 p-16 bg-[var(--app-accent)] opacity-10 blur-3xl rounded-full translate-x-10 -translate-y-10"></div>
-          <div className="relative z-10">
-            <span className="text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-widest">Total Spent</span>
-            <div className="text-4xl font-bold text-[var(--app-text)] mt-1 font-mono">{formatINR(total)}</div>
+        <div className="premium-card p-8 bg-surface border-accent/30">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <p className="text-text-muted text-xs font-bold uppercase tracking-widest">Total Spent</p>
+              <h2 className="text-5xl font-black text-text mt-2">₹{totalSpent.toLocaleString()}</h2>
+            </div>
+            <div className="p-3 bg-accent/20 rounded-xl text-accent">
+              <Wallet size={24} />
+            </div>
           </div>
-          <div className="relative z-10 flex items-center gap-2 text-xs font-medium text-[var(--app-success)]">
-            <TrendingUp size={14} />
-            <span>{percent < 90 ? "Within Budget" : "Budget Critical"}</span>
+          <div className="w-full bg-bg h-2 rounded-full overflow-hidden">
+            <div 
+              className={`h-full transition-all duration-1000 ${progress > 90 ? 'bg-rose-500' : 'bg-accent'}`} 
+              style={{ width: `${progress}%` }}
+            />
           </div>
+          <p className="text-right text-xs text-text-muted mt-2 font-mono">
+            {Math.round(progress)}% of ₹{monthlyLimit.toLocaleString()} Budget
+          </p>
         </div>
 
-        <div className="premium-card p-6 flex flex-col justify-between h-32">
-          <div className="flex justify-between items-start">
-             <span className="text-xs font-bold text-[var(--app-text-muted)] uppercase tracking-widest">Monthly Limit</span>
-             <button onClick={() => setIsEditing(!isEditing)} className="text-[var(--app-text-muted)] hover:text-[var(--app-accent)]"><Edit3 size={14}/></button>
-          </div>
-          {isEditing ? (
-             <input type="number" autoFocus defaultValue={budgetLimit} onBlur={(e) => {setBudgetLimit(parseFloat(e.target.value)); setIsEditing(false)}} className="premium-input text-2xl font-mono" />
-          ) : (
-             <div className="text-2xl font-bold text-[var(--app-text)] font-mono">{formatINR(budgetLimit)}</div>
-          )}
-          <div className="w-full bg-[var(--app-bg)] h-2 rounded-full overflow-hidden mt-2">
-             <div className="h-full bg-[var(--app-accent)] transition-all duration-500" style={{ width: `${percent}%` }} />
-          </div>
+        <div className="premium-card p-8 flex flex-col justify-center bg-surface">
+           <div className="flex items-center gap-4">
+             <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-500">
+               <TrendingUp size={24}/>
+             </div>
+             <div>
+               <p className="text-text-muted text-xs font-bold uppercase tracking-widest">Remaining</p>
+               <h3 className={`text-3xl font-bold ${remaining < 0 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                 ₹{remaining.toLocaleString()}
+               </h3>
+             </div>
+           </div>
         </div>
-      </div>
-
-      {/* 2. VIEW TOGGLE */}
-      <div className="flex items-center gap-4 border-b border-[var(--app-border)] pb-4">
-        <button 
-          onClick={() => setViewMode("list")} 
-          className={`flex items-center gap-2 text-sm font-medium transition-colors ${viewMode === "list" ? "text-[var(--app-accent)]" : "text-[var(--app-text-muted)]"}`}
-        >
-          <List size={16} /> Transactions
-        </button>
-        <button 
-          onClick={() => setViewMode("trends")} 
-          className={`flex items-center gap-2 text-sm font-medium transition-colors ${viewMode === "trends" ? "text-[var(--app-accent)]" : "text-[var(--app-text-muted)]"}`}
-        >
-          <BarChart2 size={16} /> Trends & Analysis
-        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN: DYNAMIC CONTENT (List or Chart) */}
-        <div className="lg:col-span-2 space-y-4">
-          
-          {viewMode === "list" ? (
-            <>
-              {/* Add New */}
-              <form onSubmit={handleSubmit} className="flex gap-3">
-                <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="Amount" className="premium-input flex-1" />
-                <select value={category} onChange={e=>setCategory(e.target.value)} className="premium-input w-32 bg-[var(--app-surface)]">
-                    {["Food", "Transport", "Academic", "Shopping", "Other"].map(c=><option key={c} value={c}>{c}</option>)}
-                </select>
-                <button className="px-5 bg-[var(--app-accent)] text-white rounded-lg font-medium hover:opacity-90"><Plus size={20}/></button>
-              </form>
-
-              {/* List */}
-              <div className="premium-card min-h-[400px]">
-                <div className="divide-y divide-[var(--app-border)]">
-                    {transactions.map(t => (
-                      <div key={t.id} className="px-6 py-4 flex justify-between items-center hover:bg-[var(--app-surface-hover)] transition-colors">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-[var(--app-bg)] border border-[var(--app-border)] flex items-center justify-center text-xs text-[var(--app-accent)] font-bold">{t.category[0]}</div>
-                            <div>
-                              <div className="text-sm font-medium text-[var(--app-text)]">{t.category}</div>
-                              <div className="text-[10px] text-[var(--app-text-muted)]">{new Date(t.date).toLocaleDateString()}</div>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                            <span className="text-sm font-mono text-[var(--app-text)]">-{formatINR(t.amount)}</span>
-                            <button onClick={() => deleteTransaction(t.id)} className="text-[var(--app-text-muted)] hover:text-[var(--app-danger)]"><Trash2 size={14}/></button>
-                        </div>
-                      </div>
-                    ))}
+        {/* INPUT SECTION */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="premium-card p-6 bg-surface">
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <div className="flex-1 w-full">
+                <label className="block text-xs font-bold text-text-muted uppercase mb-2 ml-1">Amount</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3.5 text-text-muted font-bold">₹</span>
+                  <input 
+                    type="number" 
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className="w-full bg-bg border border-border rounded-xl pl-8 pr-4 py-3 outline-none focus:border-accent text-text font-mono font-bold transition-all placeholder-text-muted"
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
-            </>
-          ) : (
-            /* TRENDS CHART VIEW */
-            <div className="premium-card p-6 h-[460px] flex flex-col">
-              <h3 className="text-lg font-bold text-[var(--app-text)] mb-6">Spending Trend</h3>
-              <div className="flex-1 w-full">
-                {trendData.length < 2 ? (
-                  <div className="h-full flex items-center justify-center text-[var(--app-text-muted)]">Not enough data to graph trends.</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={trendData}>
-                      <defs>
-                        <linearGradient id="colorSplit" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="var(--app-accent)" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="var(--app-accent)" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" vertical={false} />
-                      <XAxis dataKey="date" stroke="var(--app-text-muted)" fontSize={12} tickLine={false} axisLine={false} dy={10} />
-                      <YAxis stroke="var(--app-text-muted)" fontSize={12} tickLine={false} axisLine={false} dx={-10} />
-                      <Tooltip contentStyle={{backgroundColor: 'var(--app-surface)', borderColor: 'var(--app-border)', color:'var(--app-text)', borderRadius: '8px'}} />
-                      <Area type="monotone" dataKey="amount" stroke="var(--app-accent)" fillOpacity={1} fill="url(#colorSplit)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
+              
+              <div className="w-full sm:w-48">
+                <label className="block text-xs font-bold text-text-muted uppercase mb-2 ml-1">Category</label>
+                <select 
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full bg-bg border border-border rounded-xl px-4 py-3 outline-none focus:border-accent text-text font-bold transition-all appearance-none cursor-pointer"
+                >
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
+
+              <button 
+                onClick={addExpense}
+                className="w-full sm:w-auto bg-accent hover:opacity-90 text-bg p-3.5 rounded-xl transition-all shadow-lg active:scale-95 flex justify-center items-center"
+              >
+                <Plus size={24} strokeWidth={3} />
+              </button>
             </div>
-          )}
+          </div>
+
+          {/* LIST SECTION */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest pl-2">Recent Transactions</h3>
+            {expenses.map((ex, i) => (
+              <div key={i} className="group flex justify-between items-center p-4 bg-surface border border-border rounded-2xl hover:border-accent/50 transition-all hover:translate-x-1">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-bg flex items-center justify-center text-text-muted font-bold border border-border">
+                    {ex.category[0]}
+                  </div>
+                  <div>
+                    <p className="font-bold text-text">{ex.category}</p>
+                    <p className="text-xs text-text-muted flex items-center gap-1">
+                      <Calendar size={10}/> {new Date(ex.date).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="font-mono font-bold text-text">₹{ex.amount}</span>
+                  <button 
+                    onClick={() => deleteExpense(ex.id, i)}
+                    className="p-2 text-text-muted hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all"
+                  >
+                    <Trash2 size={16}/>
+                  </button>
+                </div>
+              </div>
+            ))}
+            {expenses.length === 0 && (
+              <div className="text-center py-12 text-text-muted border-2 border-dashed border-border rounded-2xl">
+                No expenses logged yet.
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* RIGHT COLUMN: PIE CHART (Span 1) */}
-        <div className="premium-card p-6 h-[350px] flex flex-col">
-           <div className="text-sm font-semibold text-[var(--app-text-muted)] mb-4">Breakdown</div>
-           <div className="flex-1 -ml-4">
+        {/* BREAKDOWN SECTION */}
+        <div className="premium-card p-6 h-fit bg-surface">
+          <div className="flex items-center gap-2 mb-6">
+            <PieChart size={16} className="text-accent"/>
+            <h3 className="text-sm font-bold uppercase tracking-widest text-text-muted">Breakdown</h3>
+          </div>
+          
+          <div className="h-64">
+            {categoryData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
-                    <Pie data={data} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="none">
-                       {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip contentStyle={{background: 'var(--app-surface)', border: '1px solid var(--app-border)', borderRadius: '8px', color: 'var(--app-text)'}} formatter={(val) => formatINR(val)} />
-                 </PieChart>
+                <BarChart data={categoryData} layout="vertical">
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="name" type="category" width={80} tick={{fill: 'var(--app-text-muted)', fontSize: 10, fontWeight: 'bold'}} axisLine={false} tickLine={false} />
+                  <Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'var(--app-surface)', borderRadius: '8px', border: '1px solid var(--app-border)', color: 'var(--app-text)'}} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={20} fill="var(--app-accent)" />
+                </BarChart>
               </ResponsiveContainer>
-           </div>
-           <div className="flex flex-wrap gap-2 mt-2 justify-center">
-              {data.slice(0,3).map((d, i) => (
-                 <div key={d.name} className="flex items-center gap-1.5 text-[10px] text-[var(--app-text-muted)]">
-                    <div className="w-2 h-2 rounded-full" style={{background: COLORS[i]}} /> {d.name}
-                 </div>
-              ))}
-           </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-text-muted">
+                Add expenses to see breakdown
+              </div>
+            )}
+          </div>
         </div>
-
       </div>
     </div>
   );

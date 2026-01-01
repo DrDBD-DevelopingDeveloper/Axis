@@ -1,22 +1,36 @@
-import { useLocalStorage } from "./useLocalStorage";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../context/AuthContext";
 
 export function useGymHistory() {
-  // Format: [ { id: 123, exercise: "Bench Press", weight: 80, date: "2025-12-31" } ]
-  const [history, setHistory] = useLocalStorage("bits_gym_history_v1", []);
+  const { user } = useAuth();
+  const [history, setHistory] = useState([]);
 
-  const logSet = (exerciseName, weight) => {
-    const newLog = {
-      id: Date.now(),
-      exercise: exerciseName,
-      weight: parseFloat(weight),
-      date: new Date().toISOString()
+  useEffect(() => {
+    if (!user) return;
+    supabase.from('gym_logs').select('*').then(({ data }) => {
+      if(data) setHistory(data);
+    });
+  }, [user]);
+
+  const logSet = async (exerciseName, weight) => {
+    const newLog = { 
+      user_id: user.id, 
+      exercise: exerciseName, 
+      weight: parseFloat(weight), 
+      date: new Date().toISOString() 
     };
-    setHistory([...history, newLog]);
+
+    // Optimistic
+    setHistory(prev => [...prev, { ...newLog, id: Date.now() }]);
+
+    // Cloud
+    await supabase.from('gym_logs').insert([newLog]);
   };
 
-  const getHistoryForExercise = (exerciseName) => {
+  const getHistoryForExercise = (name) => {
     return history
-      .filter(h => h.exercise === exerciseName)
+      .filter(h => h.exercise === name)
       .sort((a, b) => new Date(a.date) - new Date(b.date))
       .map(h => ({
         date: new Date(h.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
@@ -24,12 +38,5 @@ export function useGymHistory() {
       }));
   };
 
-  // Get Personal Best (Max Weight)
-  const getPR = (exerciseName) => {
-    const logs = history.filter(h => h.exercise === exerciseName);
-    if (logs.length === 0) return 0;
-    return Math.max(...logs.map(h => h.weight));
-  };
-
-  return { history, logSet, getHistoryForExercise, getPR };
+  return { logSet, getHistoryForExercise };
 }

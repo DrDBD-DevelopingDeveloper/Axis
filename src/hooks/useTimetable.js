@@ -1,61 +1,71 @@
-import { useLocalStorage } from "./useLocalStorage";
-import { STORAGE_KEYS } from "../utils/storage";
-import { parseICS } from "../utils/ics";
-import { toDate, isSameDay } from "../utils/time";
+import { useState, useEffect } from "react";
+import { supabase } from "../lib/supabase";
+import { useAuth } from "../context/AuthContext";
 
 export function useTimetable() {
-  const [events, setEvents] = useLocalStorage(STORAGE_KEYS.TIMETABLE_EVENTS, []);
-  // Format: { "CS F211": { present: 10, total: 12 } }
-  const [attendance, setAttendance] = useLocalStorage("bits_attendance_v1", {});
+  const { user } = useAuth();
+  const [timetable, setTimetable] = useState({});
+  const [exams, setExams] = useState([]);
+  const [todaysClasses, setTodaysClasses] = useState([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const importTimetable = (fileContent) => {
-    try {
-      const parsedEvents = parseICS(fileContent);
-      if (parsedEvents.length === 0) { alert("No events found."); return; }
-      setEvents(parsedEvents);
-      alert(`Imported ${parsedEvents.length} events.`);
-    } catch (error) { console.error(error); alert("Failed to parse."); }
-  };
-
-  const markAttendance = (courseCode, status) => {
-    setAttendance(prev => {
-      const current = prev[courseCode] || { present: 0, total: 0 };
-      return {
-        ...prev,
-        [courseCode]: {
-          present: status === 'present' ? current.present + 1 : current.present,
-          total: current.total + 1
-        }
-      };
-    });
-  };
-
-  const getTodayClasses = () => {
-    const now = new Date();
+  useEffect(() => {
+    if (!user) { setIsLoaded(true); return; }
     
-    // 1. Check for Exams Today (Override Rule)
-    const todayExams = events.filter(e => 
-      isSameDay(toDate(e.start), now) && (e.slotType === "EXAM" || e.slotType === "MIDSEM" || e.slotType === "ENDSEM")
-    );
+    const fetchTimetable = async () => {
+      try {
+        const { data } = await supabase.from('user_data').select('timetable_json').eq('user_id', user.id).single();
+        
+        if (data?.timetable_json) {
+          const raw = data.timetable_json;
+          
+          // 1. EXTRACT TIMETABLE (Handle Old vs New Structure)
+          // If raw has a .timetable property, use it. Otherwise, assume raw IS the timetable.
+          let tMap = raw.timetable ? raw.timetable : raw;
+          
+          // 2. EXTRACT EXAMS
+          let eList = raw.exams || [];
 
-    if (todayExams.length > 0) {
-      return todayExams.sort((a, b) => new Date(a.start) - new Date(b.start));
-    }
+          setTimetable(tMap);
+          setExams(eList);
 
-    // 2. If no exams, show classes
-    return events.filter(e => {
-      const d = toDate(e.start);
-      // Basic check: is it this recurring day?
-      return e.isRecurring && d.getDay() === now.getDay() && !e.slotType.includes("EXAM");
-    }).sort((a, b) => new Date(a.start) - new Date(b.start));
-  };
+          // 3. DETERMINE TODAY'S CLASSES
+          // JS: 0=Sun, 1=Mon ... 6=Sat
+          // ICS Standard: 1=Mon ... 7=Sun
+          const jsDay = new Date().getDay();
+          const cycleDay = jsDay === 0 ? 7 : jsDay;
+          
+          // ROBUST LOOKUP: Check number key, string key, and nested structures
+          // Some parsers might output { "1": [...] } and others { 1: [...] }
+          let classes = tMap[cycleDay] || tMap[String(cycleDay)] || [];
 
-  const getUpcomingExams = () => {
-    const now = new Date();
-    return events
-      .filter(e => (e.slotType === "EXAM" || e.slotType === "MIDSEM" || e.slotType === "ENDSEM") && new Date(e.start) >= now)
-      .sort((a, b) => new Date(a.start) - new Date(b.start));
-  };
+          // If strictly empty, double check we aren't nested inside another 'timetable' key accidentally
+          if (classes.length === 0 && tMap.timetable) {
+             classes = tMap.timetable[cycleDay] || tMap.timetable[String(cycleDay)] || [];
+          }
+          
+          // 4. SORT BY TIME (Minutes)
+          if (Array.isArray(classes)) {
+            // Sort based on minutes if available, otherwise string comparison
+            classes.sort((a, b) => {
+              if (a.minutes && b.minutes) return a.minutes - b.minutes;
+              return a.time.localeCompare(b.time);
+            });
+          } else {
+            classes = []; // Safety fallback if not an array
+          }
 
-  return { events, attendance, importTimetable, getTodayClasses, markAttendance, getUpcomingExams, clearTimetable: () => setEvents([]) };
+          setTodaysClasses(classes);
+        }
+      } catch (err) {
+        console.error("Timetable sync failed:", err);
+      } finally {
+        setIsLoaded(true);
+      }
+    };
+
+    fetchTimetable();
+  }, [user]);
+
+  return { timetable, exams, todaysClasses, isLoaded };
 }

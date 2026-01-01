@@ -1,210 +1,147 @@
 import React, { useState } from "react";
 import { useGym } from "../hooks/useGym";
 import { useGymHistory } from "../hooks/useGymHistory";
-import ExerciseChart from "../components/ExerciseChart";
-import { Plus, X, RotateCcw, Dumbbell, Trash2, TrendingUp, Save } from "lucide-react";
+import { Edit2, RotateCcw, Plus, Trash2, Calendar, Dumbbell, ChevronRight, Activity } from "lucide-react";
 
 export default function Gym() {
   const { 
-    schedule, templates, 
-    assignTemplateToDay, createTemplate, updateTemplate, deleteTemplate,
-    addExerciseToTemplate, updateExercise, removeExercise,
-    getFullDayData, getTodayCycleIndex, restartCycle 
+    schedule, templates, getTodayCycleIndex, assignTemplateToDay, 
+    updateTemplateName, addExercise, deleteExercise, updateExercise, resetCycle, isLoaded 
   } = useGym();
-
-  const { logSet, getHistoryForExercise, getPR } = useGymHistory();
-
-  // Navigation State
-  const todayIndex = getTodayCycleIndex(); 
-  const [activeDayIndex, setActiveDayIndex] = useState(todayIndex + 1);
-  const [chartExercise, setChartExercise] = useState(null); // Tracks which chart is open
   
-  const activeDayData = getFullDayData(activeDayIndex);
+  const [activeTab, setActiveTab] = useState('schedule');
+  const [selectedTemplateId, setSelectedTemplateId] = useState(templates[0]?.id || null);
+  const todayIndex = getTodayCycleIndex();
 
-  // --- Handlers ---
-
-  const handleCreateTemplate = () => {
-    const name = prompt("Enter Template Name (e.g., 'Push Heavy'):");
-    if (name) {
-      const id = createTemplate(name);
-      assignTemplateToDay(activeDayIndex, id); 
-    }
-  };
-
-  const handleDeleteTemplate = (id) => {
-    if (confirm("Delete this template?")) deleteTemplate(id);
-  };
-
-  const handleLogWeight = (ex) => {
-    if (!ex.weight || ex.weight === "0") return;
-    logSet(ex.name, ex.weight);
-    alert(`Logged ${ex.weight}kg for ${ex.name}`);
-  };
+  if (!isLoaded) return <div className="h-full flex items-center justify-center text-text-muted font-heading animate-pulse">Syncing Gym OS...</div>;
 
   return (
-    <div className="h-[calc(100vh-80px)] flex flex-col md:flex-row gap-6 max-w-[1600px] mx-auto">
-      
-      {/* CHART OVERLAY */}
-      {chartExercise && (
-        <ExerciseChart 
-          exerciseName={chartExercise} 
-          data={getHistoryForExercise(chartExercise)} 
-          onClose={() => setChartExercise(null)} 
-        />
-      )}
-
-      {/* LEFT: Schedule */}
-      <div className="w-full md:w-64 premium-card overflow-hidden flex flex-col h-full">
-        <div className="p-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex justify-between items-center">
-          <h2 className="font-bold text-[var(--app-text)]">14-Day Cycle</h2>
-          <button onClick={restartCycle} className="text-xs text-[var(--app-accent)] hover:underline flex items-center gap-1">
-             <RotateCcw size={10} /> Restart
-          </button>
+    <div className="max-w-7xl mx-auto space-y-8 p-8 text-text">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-end gap-6 pb-6 border-b border-border">
+        <div>
+          <h1 className="text-4xl font-extrabold text-text mb-2">Gym Routine</h1>
+          <p className="text-text-muted flex items-center gap-2">
+            <Activity size={16} className="text-accent"/> 
+            Managing 14-day microcycle
+          </p>
         </div>
-        <div className="overflow-y-auto flex-1">
-          {schedule.map((day, idx) => {
-            const isToday = idx === todayIndex;
-            const tName = templates.find(t => t.id === day.templateId)?.name || "Rest";
+        <div className="flex gap-4">
+            <button onClick={resetCycle} className="p-3 text-text-muted hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all border border-transparent hover:border-rose-500/20" title="Restart Cycle"><RotateCcw size={20}/></button>
+            
+            <div className="bg-surface p-1.5 rounded-xl border border-border flex gap-1">
+                <button onClick={() => setActiveTab('schedule')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'schedule' ? 'bg-bg text-text shadow-sm border border-border' : 'text-text-muted hover:text-text'}`}>
+                    <Calendar size={16}/> Schedule
+                </button>
+                <button onClick={() => setActiveTab('editor')} className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${activeTab === 'editor' ? 'bg-bg text-text shadow-sm border border-border' : 'text-text-muted hover:text-text'}`}>
+                    <Edit2 size={16}/> Editor
+                </button>
+            </div>
+        </div>
+      </div>
+
+      {/* SCHEDULE VIEW */}
+      {activeTab === 'schedule' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+          {schedule.map((day) => {
+            const isToday = day.dayIndex === todayIndex + 1;
+            const assignedTemplate = templates.find(t => t.id === day.templateId);
+            
             return (
-              <button
-                key={day.dayIndex}
-                onClick={() => setActiveDayIndex(day.dayIndex)}
-                className={`
-                  w-full text-left px-4 py-3 border-b border-[var(--app-border)] flex items-center justify-between text-sm transition-colors
-                  ${day.dayIndex === activeDayIndex 
-                    ? "bg-[var(--app-bg)] text-[var(--app-accent)] font-medium border-l-4 border-l-[var(--app-accent)]" 
-                    : "text-[var(--app-text-muted)] hover:bg-[var(--app-surface-hover)]"}
-                  ${isToday ? "bg-[var(--app-accent)]/5" : ""}
-                `}
-              >
-                <div className="flex items-center gap-2">
-                  <span>Day {day.dayIndex}</span>
-                  {isToday && <span className="text-[10px] bg-[var(--app-accent)] text-white px-1.5 rounded">TODAY</span>}
+              <div key={day.dayIndex} className={`relative p-5 rounded-2xl border transition-all duration-300 flex flex-col h-[180px] group ${isToday ? "bg-surface border-accent shadow-[0_0_30px_-10px_var(--app-accent-glow)] ring-1 ring-accent/50" : "bg-surface border-border hover:border-text-muted"}`}>
+                <div className="flex justify-between items-start mb-4">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest font-mono ${isToday ? "text-accent" : "text-text-muted"}`}>Day {day.dayIndex}</span>
+                  {isToday && <span className="bg-accent text-bg text-[9px] font-black px-2 py-0.5 rounded shadow-sm">TODAY</span>}
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full border truncate max-w-[90px] ${
-                   day.templateId ? "bg-[var(--app-surface)] border-[var(--app-accent)] text-[var(--app-accent)]" : "bg-[var(--app-bg)] border-[var(--app-border)] text-[var(--app-text-muted)]"
-                }`}>
-                  {tName}
-                </span>
-              </button>
+                
+                <div className="flex-1 flex flex-col justify-center">
+                    <select 
+                      className={`w-full bg-transparent text-lg font-bold outline-none appearance-none cursor-pointer hover:underline underline-offset-4 decoration-accent/30 ${!assignedTemplate ? 'text-text-muted text-sm italic' : 'text-text'}`}
+                      value={day.templateId || ""} 
+                      onChange={(e) => assignTemplateToDay(day.dayIndex, e.target.value)}
+                    >
+                      <option value="">Rest & Recover</option>
+                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                </div>
+                
+                {isToday && assignedTemplate && (
+                   <button className="w-full py-2 bg-accent text-bg text-[10px] uppercase tracking-wider font-bold rounded-lg hover:opacity-90 transition-colors">Start Session</button>
+                )}
+              </div>
             );
           })}
         </div>
-      </div>
+      )}
 
-      {/* RIGHT: Main Panel */}
-      <div className="flex-1 premium-card flex flex-col overflow-hidden h-full">
-        
-        {/* HEADER */}
-        <div className="p-6 border-b border-[var(--app-border)] bg-[var(--app-bg)]/50">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-[var(--app-text)]">Day {activeDayIndex}</h2>
-              <p className="text-xs text-[var(--app-text-muted)] mt-1">Configure your workout for this day.</p>
-            </div>
-            
-            <div className="flex items-center gap-2 w-full md:w-auto">
-              <select 
-                value={activeDayData.templateId || ""}
-                onChange={(e) => assignTemplateToDay(activeDayIndex, e.target.value || null)}
-                className="premium-input md:w-64 bg-[var(--app-surface)]"
+      {/* EDITOR VIEW */}
+      {activeTab === 'editor' && (
+        <div className="flex flex-col lg:flex-row gap-8 h-[650px]">
+          {/* Sidebar */}
+          <div className="lg:w-1/4 bg-surface rounded-2xl border border-border p-4 flex flex-col gap-2 overflow-y-auto">
+            <h3 className="text-xs font-bold uppercase text-text-muted mb-2 px-2 font-mono">My Routines</h3>
+            {templates.map(template => (
+              <button
+                key={template.id}
+                onClick={() => setSelectedTemplateId(template.id)}
+                className={`w-full text-left p-4 rounded-xl border transition-all flex justify-between items-center group ${selectedTemplateId === template.id ? 'bg-bg border-accent text-text' : 'bg-transparent border-transparent text-text-muted hover:bg-bg'}`}
               >
-                <option value="">-- Rest Day --</option>
-                {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-              </select>
-              <button onClick={handleCreateTemplate} className="p-2 premium-card hover:bg-[var(--app-surface-hover)] text-[var(--app-accent)]">
-                <Plus size={20} />
+                <span className="font-bold text-sm">{template.name}</span>
+                <ChevronRight size={16} className={`transition-transform ${selectedTemplateId === template.id ? 'text-accent translate-x-0' : 'opacity-0 -translate-x-2 group-hover:opacity-50 group-hover:translate-x-0'}`}/>
               </button>
-            </div>
+            ))}
+          </div>
+
+          {/* Main Editor */}
+          <div className="lg:w-3/4 bg-surface rounded-2xl border border-border p-8 flex flex-col">
+            {selectedTemplateId ? (
+              <>
+                <div className="flex justify-between items-center mb-8 border-b border-border pb-6">
+                   <div className="flex-1">
+                       <label className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1 block font-mono">Routine Name</label>
+                       <input 
+                          className="text-4xl font-extrabold bg-transparent outline-none text-text placeholder-text-muted w-full"
+                          value={templates.find(t => t.id === selectedTemplateId)?.name}
+                          onChange={(e) => updateTemplateName(selectedTemplateId, e.target.value)}
+                       />
+                   </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  {templates.find(t => t.id === selectedTemplateId)?.exercises?.map((ex, i) => (
+                    <div key={i} className="flex gap-4 items-center p-4 bg-bg rounded-xl border border-border group hover:border-text-muted transition-colors">
+                      <span className="text-text-muted font-mono text-xs w-6">{String(i + 1).padStart(2, '0')}</span>
+                      
+                      <div className="flex-1">
+                        <input className="w-full bg-transparent font-bold text-base outline-none text-text placeholder-text-muted" value={ex.name} onChange={(e) => updateExercise(selectedTemplateId, i, 'name', e.target.value)} placeholder="Exercise Name"/>
+                      </div>
+
+                      <div className="w-24 bg-surface rounded-lg p-1 border border-border flex flex-col items-center">
+                         <span className="text-[9px] text-text-muted font-bold uppercase">Sets</span>
+                        <input className="w-full bg-transparent text-center text-sm font-mono outline-none text-accent font-bold" value={ex.sets} onChange={(e) => updateExercise(selectedTemplateId, i, 'sets', e.target.value)}/>
+                      </div>
+
+                      <div className="w-24 bg-surface rounded-lg p-1 border border-border flex flex-col items-center">
+                         <span className="text-[9px] text-text-muted font-bold uppercase">Reps</span>
+                         <input className="w-full bg-transparent text-center text-sm font-mono outline-none text-accent font-bold" value={ex.reps} onChange={(e) => updateExercise(selectedTemplateId, i, 'reps', e.target.value)}/>
+                      </div>
+
+                      <button onClick={() => deleteExercise(selectedTemplateId, i)} className="p-3 text-text-muted hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                        <Trash2 size={18}/>
+                      </button>
+                    </div>
+                  ))}
+                  <button onClick={() => addExercise(selectedTemplateId)} className="w-full py-4 border-2 border-dashed border-border rounded-xl text-text-muted font-bold hover:border-accent hover:text-accent hover:bg-accent/5 transition-all flex items-center justify-center gap-2 mt-4">
+                    <Plus size={18}/> Add Exercise
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-text-muted">Select a routine to edit</div>
+            )}
           </div>
         </div>
-
-        {/* EDITOR */}
-        {activeDayData.templateId ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <div className="px-6 py-3 border-b border-[var(--app-border)] bg-[var(--app-surface)] flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <Dumbbell size={16} className="text-[var(--app-accent)]" />
-                <input 
-                  type="text" 
-                  value={activeDayData.type}
-                  onChange={(e) => updateTemplate(activeDayData.templateId, { name: e.target.value })}
-                  className="font-bold text-[var(--app-text)] bg-transparent outline-none focus:border-b border-[var(--app-accent)] w-full md:w-auto"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => addExerciseToTemplate(activeDayData.templateId)} className="flex items-center gap-1 text-xs bg-[var(--app-accent)] text-white px-3 py-1.5 rounded-lg hover:opacity-90">
-                  <Plus size={14} /> Add Ex
-                </button>
-                <button onClick={() => handleDeleteTemplate(activeDayData.templateId)} className="p-1.5 text-[var(--app-text-muted)] hover:text-[var(--app-danger)]">
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-[var(--app-bg)]">
-              {activeDayData.exercises.length === 0 ? (
-                <div className="text-center py-12 text-[var(--app-text-muted)]">No exercises. Add one to start.</div>
-              ) : (
-                activeDayData.exercises.map((ex, index) => (
-                  <div key={ex.id} className="flex flex-col md:flex-row gap-3 items-center bg-[var(--app-surface)] p-3 rounded-lg border border-[var(--app-border)] shadow-sm group">
-                    <span className="text-[var(--app-text-muted)] font-bold w-6 text-center">{index + 1}</span>
-                    
-                    {/* Name */}
-                    <input 
-                      type="text" 
-                      value={ex.name} 
-                      placeholder="Exercise Name"
-                      onChange={(e) => updateExercise(activeDayData.templateId, ex.id, "name", e.target.value)}
-                      className="flex-1 font-medium text-[var(--app-text)] bg-transparent outline-none placeholder-[var(--app-text-muted)] w-full md:w-auto"
-                    />
-                    
-                    {/* Stats Group */}
-                    <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-start">
-                      <div className="flex items-center gap-2 text-sm text-[var(--app-text-muted)]">
-                        <input type="text" value={ex.sets} onChange={(e) => updateExercise(activeDayData.templateId, ex.id, "sets", e.target.value)} className="w-10 text-center bg-transparent border-b border-[var(--app-border)] focus:border-[var(--app-accent)] outline-none text-[var(--app-text)]" />
-                        <span>sets</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-[var(--app-text-muted)]">
-                        <input type="text" value={ex.reps} onChange={(e) => updateExercise(activeDayData.templateId, ex.id, "reps", e.target.value)} className="w-10 text-center bg-transparent border-b border-[var(--app-border)] focus:border-[var(--app-accent)] outline-none text-[var(--app-text)]" />
-                        <span>reps</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-[var(--app-text-muted)]">
-                        <input 
-                           type="text" 
-                           value={ex.weight || ""} 
-                           placeholder="0"
-                           onChange={(e) => updateExercise(activeDayData.templateId, ex.id, "weight", e.target.value)} 
-                           className="w-12 text-center bg-[var(--app-bg)] border border-[var(--app-border)] rounded focus:border-[var(--app-accent)] outline-none text-[var(--app-text)] font-bold py-1" 
-                        />
-                        <span>kg</span>
-                      </div>
-                    </div>
-
-                    {/* Actions Group */}
-                    <div className="flex items-center gap-2 border-l border-[var(--app-border)] pl-3">
-                       <button onClick={() => handleLogWeight(ex)} title="Log Weight History" className="p-2 text-[var(--app-text-muted)] hover:text-[var(--app-success)] hover:bg-[var(--app-bg)] rounded-md transition-colors">
-                          <Save size={16} />
-                       </button>
-                       <button onClick={() => setChartExercise(ex.name)} title="View Progress" className="p-2 text-[var(--app-text-muted)] hover:text-[var(--app-accent)] hover:bg-[var(--app-bg)] rounded-md transition-colors">
-                          <TrendingUp size={16} />
-                       </button>
-                       <button onClick={() => removeExercise(activeDayData.templateId, ex.id)} className="p-2 text-[var(--app-text-muted)] hover:text-[var(--app-danger)] transition-colors">
-                          <X size={16} />
-                       </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex flex-col items-center justify-center text-[var(--app-text-muted)]">
-            <div className="p-4 rounded-full bg-[var(--app-bg)] mb-4"><Dumbbell size={32} opacity={0.5} /></div>
-            <p className="font-medium">Rest Day</p>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

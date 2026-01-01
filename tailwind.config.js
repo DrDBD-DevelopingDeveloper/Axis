@@ -6,21 +6,21 @@ export default {
   ],
   theme: {
     extend: {
-      colors: {
-        app: {
-          bg: 'var(--app-bg)',
-          surface: 'var(--app-surface)',
-          text: 'var(--app-text)',
-          muted: 'var(--app-text-muted)',
-          accent: 'var(--app-accent)',
-          border: 'var(--app-border)',
-          danger: 'var(--app-danger)',
-          success: 'var(--app-success)',
-          warning: 'var(--app-warning)',
-        }
+      fontFamily: {
+        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+        heading: ['"Outfit"', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
       },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+      // MAGIC MAPPING: connecting Tailwind classes to your CSS Variables
+      colors: {
+        bg: 'var(--app-bg)',
+        surface: 'var(--app-surface)',
+        'surface-hover': 'var(--app-surface-hover)',
+        text: 'var(--app-text)',
+        'text-muted': 'var(--app-text-muted)',
+        border: 'var(--app-border)',
+        accent: 'var(--app-accent)',
+        'accent-glow': 'var(--app-accent-glow)',
       }
     },
   },

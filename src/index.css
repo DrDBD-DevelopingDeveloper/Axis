@@ -1,104 +1,214 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* PREMIUM THEME ENGINE v5.0 (Final Polish) */
-
-/* 1. GRAPHITE (Linear Dark - The "Professional" Choice) */
-body {
-  --app-bg: #09090b;          /* Zinc-950 (True Matte Black) */
-  --app-surface: #18181b;     /* Zinc-900 */
-  --app-surface-hover: #27272a;
-  --app-text: #f4f4f5;        /* Zinc-100 */
-  --app-text-muted: #a1a1aa;  /* Zinc-400 */
-  --app-accent: #3b82f6;      /* Sharp Blue */
-  --app-border: #27272a;      /* Zinc-800 */
-  --app-danger: #ef4444;
-  --app-success: #10b981;
+/* --- ANIMATIONS --- */
+body, div, button, input, select, span, p, h1, h2, h3 {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* 2. PAPER (Notion Light - Clean & crisp) */
-body.theme-paper {
-  --app-bg: #ffffff;
-  --app-surface: #fbfbfb;     
-  --app-surface-hover: #f3f3f3;
-  --app-text: #37352f;        
-  --app-text-muted: #787774;  
-  --app-accent: #ea580c;      /* International Orange */
-  --app-border: #e6e6e6;      
-  --app-danger: #eb5757;
-  --app-success: #448361;
+/* --- THEME DEFINITIONS --- */
+
+/* 1. GRAPHITE (The Dark Standard) */
+:root {
+  --app-bg: #09090b; /* Zinc 950 - Deep but not flat black */
+  --app-surface: #18181b; /* Zinc 900 - Distinct card layer */
+  --app-surface-hover: #27272a; /* Zinc 800 */
+  --app-border: #27272a;
+  --app-text: #ffffff;
+  --app-text-muted: #a1a1aa;
+  --app-accent: #8b5cf6; /* Default Violet */
+  --app-accent-from: #8b5cf6;
+  --app-accent-to: #6d28d9;
+  --app-accent-glow: rgba(139, 92, 246, 0.4);
 }
 
-/* 3. OBSIDIAN (Cyberpunk Purple/Black - The "Aesthetic" Choice) */
-body.theme-obsidian {
-  --app-bg: #0f0a14;          /* Deepest Violet/Black */
-  --app-surface: #1b1424;     /* Dark Violet Surface */
-  --app-surface-hover: #261d33;
-  --app-text: #ede9fe;        /* Pale Purple White */
-  --app-text-muted: #8b809a;  /* Muted Violet Grey */
-  --app-accent: #a855f7;      /* Electric Purple */
-  --app-border: #322842;      /* Purple tinted border */
-  --app-danger: #fb7185;      /* Rose */
-  --app-success: #34d399;     /* Emerald */
+/* 2. BLOODLUST (Dark) - Royal Crimson */
+.theme-bloodlust {
+  --app-bg: #0f0505; /* Deep Crimson Black */
+  --app-surface: #1c0a0a; /* Elevated Red-Black */
+  --app-surface-hover: #2b0f0f;
+  --app-border: #450a0a;
+  --app-text: #ffe4e6;
+  --app-text-muted: #fda4af;
+  --app-accent: #f43f5e; /* Rose */
+  --app-accent-from: #e11d48; /* Gradient Start */
+  --app-accent-to: #be123c;   /* Gradient End */
+  --app-accent-glow: rgba(244, 63, 94, 0.5);
 }
 
-/* GLOBAL RESET */
+/* 2b. BLOODLUST (Light) - "Rose" */
+.theme-bloodlust-light {
+  --app-bg: #fff1f2; /* Rose 50 */
+  --app-surface: #ffffff; /* Pure White Cards */
+  --app-surface-hover: #ffe4e6;
+  --app-border: #fecdd3;
+  --app-text: #881337; /* Deep Rose Text */
+  --app-text-muted: #9f1239;
+  --app-accent: #e11d48;
+  --app-accent-from: #f43f5e;
+  --app-accent-to: #e11d48;
+  --app-accent-glow: rgba(225, 29, 72, 0.3);
+}
+
+/* 3. PAPER (Light Standard) */
+.theme-paper {
+  --app-bg: #f5f5f4; /* Warm Grey */
+  --app-surface: #ffffff;
+  --app-surface-hover: #fafaf9;
+  --app-border: #e7e5e4;
+  --app-text: #1c1917;
+  --app-text-muted: #57534e;
+  --app-accent: #d97706; /* Amber */
+  --app-accent-from: #d97706;
+  --app-accent-to: #b45309;
+  --app-accent-glow: rgba(217, 119, 6, 0.3);
+}
+
+/* 4. OBSIDIAN (Dark) - Royal Void */
+.theme-obsidian {
+  --app-bg: #020005; /* Void */
+  --app-surface: #0e0518; /* Deep Purple Black */
+  --app-surface-hover: #1a0b2e;
+  --app-border: #2e1065;
+  --app-text: #f3e8ff;
+  --app-text-muted: #c084fc;
+  --app-accent: #d8b4fe;
+  --app-accent-from: #c084fc;
+  --app-accent-to: #9333ea;
+  --app-accent-glow: rgba(192, 132, 252, 0.4);
+}
+
+/* 4b. OBSIDIAN (Light) - "Lilac" */
+.theme-obsidian-light {
+  --app-bg: #fdf4ff; /* Fuchsia 50 */
+  --app-surface: #ffffff;
+  --app-surface-hover: #fae8ff;
+  --app-border: #f0abfc;
+  --app-text: #4a044e; /* Deep Purple Text */
+  --app-text-muted: #86198f;
+  --app-accent: #c084fc;
+  --app-accent-from: #e879f9;
+  --app-accent-to: #d946ef;
+  --app-accent-glow: rgba(192, 132, 252, 0.3);
+}
+
+/* 5. BLUEBERRY (Dark) - Royal Navy */
+.theme-blueberry {
+  --app-bg: #020617; /* Slate 950 */
+  --app-surface: #0f172a; /* Slate 900 */
+  --app-surface-hover: #1e293b;
+  --app-border: #1e293b;
+  --app-text: #f8fafc;
+  --app-text-muted: #94a3b8;
+  --app-accent: #3b82f6; /* Royal Blue */
+  --app-accent-from: #3b82f6;
+  --app-accent-to: #2563eb;
+  --app-accent-glow: rgba(59, 130, 246, 0.4);
+}
+
+/* 5b. BLUEBERRY (Light) - "Sky" */
+.theme-blueberry-light {
+  --app-bg: #f0f9ff; /* Sky 50 */
+  --app-surface: #ffffff;
+  --app-surface-hover: #e0f2fe;
+  --app-border: #bae6fd;
+  --app-text: #0c4a6e; /* Deep Navy Text */
+  --app-text-muted: #0369a1;
+  --app-accent: #0ea5e9;
+  --app-accent-from: #38bdf8;
+  --app-accent-to: #0284c7;
+  --app-accent-glow: rgba(14, 165, 233, 0.3);
+}
+
+/* 6. OLIVE (Dark) - Royal Emerald */
+.theme-olive {
+  --app-bg: #050a05; /* Deep Green Black */
+  --app-surface: #0b160b; /* Elevated Green */
+  --app-surface-hover: #142414;
+  --app-border: #14532d;
+  --app-text: #f0fdf4;
+  --app-text-muted: #86efac;
+  --app-accent: #4ade80; /* Bright Green/Gold feel */
+  --app-accent-from: #4ade80;
+  --app-accent-to: #16a34a;
+  --app-accent-glow: rgba(74, 222, 128, 0.4);
+}
+
+/* 6b. OLIVE (Light) - "Sage" */
+.theme-olive-light {
+  --app-bg: #f0fdf4; /* Green 50 */
+  --app-surface: #ffffff;
+  --app-surface-hover: #dcfce7;
+  --app-border: #86efac;
+  --app-text: #14532d; /* Deep Forest Text */
+  --app-text-muted: #166534;
+  --app-accent: #65a30d;
+  --app-accent-from: #84cc16;
+  --app-accent-to: #4d7c0f;
+  --app-accent-glow: rgba(101, 163, 13, 0.3);
+}
+
+/* --- BASE TYPOGRAPHY --- */
 body {
   background-color: var(--app-bg);
   color: var(--app-text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; /* Cleaner font stack */
-  -webkit-font-smoothing: antialiased;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
-@layer components {
-  /* SHARP CARD: No shadow in dark mode, just crisp borders */
-  .premium-card {
-    background-color: var(--app-surface);
-    border: 1px solid var(--app-border);
-    border-radius: 12px;
-    color: var(--app-text);
-    /* Remove shadow for cleaner dark mode look */
-    box-shadow: none; 
-  }
-
-  /* INPUTS */
-  .premium-input {
-    background-color: var(--app-bg);
-    border: 1px solid var(--app-border);
-    color: var(--app-text);
-    padding: 0.6rem 0.8rem;
-    border-radius: 8px;
-    width: 100%;
-    outline: none;
-    font-size: 0.9rem;
-    transition: all 0.2s;
-  }
-  
-  .premium-input:focus {
-    border-color: var(--app-accent);
-    /* Subtle glow matching accent */
-    box-shadow: 0 0 0 1px var(--app-accent);
-  }
-
-  /* SIDEBAR SPECIFIC - Ensures it matches theme */
-  .sidebar-container {
-    background-color: var(--app-surface);
-    border-right: 1px solid var(--app-border);
-  }
-  
-  .sidebar-item-active {
-    background-color: var(--app-bg);
-    color: var(--app-accent);
-    border: 1px solid var(--app-border);
-  }
-  
-  .sidebar-item-inactive {
-    color: var(--app-text-muted);
-  }
-  .sidebar-item-inactive:hover {
-    color: var(--app-text);
-    background-color: var(--app-surface-hover);
-  }
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
 }
+
+/* --- PREMIUM UI COMPONENTS --- */
+
+/* Cards with depth and separation */
+.premium-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  @apply rounded-2xl relative overflow-hidden transition-all duration-300;
+}
+
+.premium-card:hover {
+  border-color: var(--app-accent);
+  box-shadow: 0 10px 30px -10px var(--app-accent-glow);
+  transform: translateY(-2px);
+}
+
+/* Buttons with Gradients ("Alive" feel) */
+.premium-button {
+  background-image: linear-gradient(135deg, var(--app-accent-from), var(--app-accent-to));
+  color: #ffffff; /* Always white text on gradients */
+  box-shadow: 0 4px 15px -3px var(--app-accent-glow);
+  border: 1px solid rgba(255,255,255,0.1);
+  @apply font-bold py-3 px-6 rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden;
+}
+
+.premium-button:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 8px 25px -5px var(--app-accent-glow);
+  transform: translateY(-1px);
+}
+
+/* Inputs with focus glow */
+input, select {
+  background-color: var(--app-bg);
+  border: 1px solid var(--app-border);
+  color: var(--app-text);
+  @apply transition-all duration-300;
+}
+
+input:focus, select:focus {
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 2px var(--app-accent-glow);
+  outline: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--app-border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--app-text-muted); }
